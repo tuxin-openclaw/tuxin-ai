@@ -9,6 +9,7 @@ import {
 import {
   PlusOutlined, ThunderboltOutlined, DeleteOutlined,
   EditOutlined, BranchesOutlined, RightOutlined, DownOutlined,
+  SubnodeOutlined,
 } from '@ant-design/icons'
 import { taskApi } from '../services/api'
 
@@ -28,7 +29,8 @@ function Tasks() {
   const [editingTask, setEditingTask] = useState(null)
   const [filter, setFilter] = useState(null) // null=全部, true=已完成, false=进行中
   const [splitting, setSplitting] = useState(null) // 正在拆解的任务ID
-  const [collapsed, setCollapsed] = useState(new Set()) // 已折叠的父任务ID集合
+  const [expandedTaskId, setExpandedTaskId] = useState(null) // 当前展开的父任务ID（手风琴模式）
+  const [parentTaskId, setParentTaskId] = useState(null) // 手动添加子任务时的父任务ID
   const [form] = Form.useForm()
 
   const loadTasks = useCallback(async () => {
@@ -51,7 +53,16 @@ function Tasks() {
 
   const handleCreate = () => {
     setEditingTask(null)
+    setParentTaskId(null)
     form.resetFields()
+    setModalVisible(true)
+  }
+
+  const handleAddSubtask = (task) => {
+    setEditingTask(null)
+    setParentTaskId(task.id)
+    form.resetFields()
+    form.setFieldsValue({ priority: task.priority })
     setModalVisible(true)
   }
 
@@ -72,8 +83,12 @@ function Tasks() {
         await taskApi.update(editingTask.id, values)
         message.success('任务已更新')
       } else {
-        await taskApi.create(values)
-        message.success('任务已创建')
+        const payload = parentTaskId ? { ...values, parent_id: parentTaskId } : values
+        await taskApi.create(payload)
+        message.success(parentTaskId ? '子任务已创建' : '任务已创建')
+        if (parentTaskId) {
+          setExpandedTaskId(parentTaskId)
+        }
       }
       setModalVisible(false)
       loadTasks()
@@ -102,33 +117,42 @@ function Tasks() {
     }
   }
 
-  const handleSplit = async (taskId) => {
-    setSplitting(taskId)
-    try {
-      await taskApi.split(taskId)
-      message.success('AI已拆解任务为子任务')
-      // 拆解后自动展开
-      setCollapsed(prev => { const s = new Set(prev); s.delete(taskId); return s })
-      loadTasks()
-    } catch (err) {
-      message.error('拆解失败')
-    } finally {
-      setSplitting(null)
-    }
+  const handleSplit = (taskId) => {
+    const task = tasks.find(t => t.id === taskId)
+    const hasChildren = task?.children?.length > 0
+    Modal.confirm({
+      title: 'AI 拆解任务',
+      content: hasChildren
+        ? `当前已有 ${task.children.length} 个子任务，AI 拆解会替换现有子任务，确定继续？`
+        : `确定使用 AI 拆解「${task?.title}」？`,
+      okText: '确定拆解',
+      cancelText: '取消',
+      onOk: async () => {
+        setSplitting(taskId)
+        try {
+          await taskApi.split(taskId)
+          message.success('AI 已拆解任务为子任务')
+          setExpandedTaskId(taskId)
+          loadTasks()
+        } catch (err) {
+          const detail = err?.response?.data?.detail || err.message || '未知错误'
+          message.error(`拆解失败: ${detail}`, 6)
+          console.error('拆解失败', err)
+        } finally {
+          setSplitting(null)
+        }
+      },
+    })
   }
 
   const toggleCollapse = (taskId) => {
-    setCollapsed(prev => {
-      const s = new Set(prev)
-      s.has(taskId) ? s.delete(taskId) : s.add(taskId)
-      return s
-    })
+    setExpandedTaskId(prev => prev === taskId ? null : taskId)
   }
 
   const renderTask = (task, isChild = false) => {
     const pri = priorityOptions.find(p => p.value === task.priority)
     const hasChildren = task.children?.length > 0
-    const isCollapsed = collapsed.has(task.id)
+    const isCollapsed = task.id !== expandedTaskId
     return (
       <List.Item
         key={task.id}
@@ -149,6 +173,11 @@ function Tasks() {
               >
                 AI拆解
               </Button>
+            </Tooltip>
+          ),
+          !isChild && (
+            <Tooltip title="添加子任务" key="addchild">
+              <Button type="link" icon={<SubnodeOutlined />} onClick={() => handleAddSubtask(task)} />
             </Tooltip>
           ),
           <Tooltip title="编辑" key="edit">
@@ -229,7 +258,7 @@ function Tasks() {
             renderItem={(task) => (
               <>
                 {renderTask(task)}
-                {!collapsed.has(task.id) && task.children?.map(child => renderTask(child, true))}
+                {expandedTaskId === task.id && task.children?.map(child => renderTask(child, true))}
               </>
             )}
           />
@@ -240,10 +269,10 @@ function Tasks() {
 
       {/* 新建/编辑弹窗 */}
       <Modal
-        title={editingTask ? '编辑任务' : '新建任务'}
+        title={editingTask ? '编辑任务' : parentTaskId ? '添加子任务' : '新建任务'}
         open={modalVisible}
         onOk={handleSubmit}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => { setModalVisible(false); setParentTaskId(null) }}
         okText="保存"
         cancelText="取消"
       >

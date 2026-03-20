@@ -1,5 +1,6 @@
 """任务管理路由"""
 
+import traceback
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -93,8 +94,16 @@ async def split_task(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    # 调用 AI 服务拆解
-    subtasks_data = await ai_service.split_task(task.title, task.description or "")
+    try:
+        # 调用 AI 服务拆解
+        subtasks_data = await ai_service.split_task(task.title, task.description or "")
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[AI拆解失败] task_id={task_id}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"AI拆解失败: {type(e).__name__}: {e}")
+
+    # 先删除原有的子任务
+    db.query(Task).filter(Task.parent_id == task.id).delete()
 
     created_tasks = []
     for sub in subtasks_data:
@@ -107,7 +116,14 @@ async def split_task(task_id: int, db: Session = Depends(get_db)):
         db.add(child)
         created_tasks.append(child)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        tb = traceback.format_exc()
+        print(f"[AI拆解-保存失败] task_id={task_id}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"拆解结果保存失败: {type(e).__name__}: {e}")
+
     for t in created_tasks:
         db.refresh(t)
 
