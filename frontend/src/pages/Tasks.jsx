@@ -8,7 +8,7 @@ import {
 } from 'antd'
 import {
   PlusOutlined, ThunderboltOutlined, DeleteOutlined,
-  EditOutlined, BranchesOutlined,
+  EditOutlined, BranchesOutlined, RightOutlined, DownOutlined,
 } from '@ant-design/icons'
 import { taskApi } from '../services/api'
 
@@ -28,6 +28,7 @@ function Tasks() {
   const [editingTask, setEditingTask] = useState(null)
   const [filter, setFilter] = useState(null) // null=全部, true=已完成, false=进行中
   const [splitting, setSplitting] = useState(null) // 正在拆解的任务ID
+  const [collapsed, setCollapsed] = useState(new Set()) // 已折叠的父任务ID集合
   const [form] = Form.useForm()
 
   const loadTasks = useCallback(async () => {
@@ -106,6 +107,8 @@ function Tasks() {
     try {
       await taskApi.split(taskId)
       message.success('AI已拆解任务为子任务')
+      // 拆解后自动展开
+      setCollapsed(prev => { const s = new Set(prev); s.delete(taskId); return s })
       loadTasks()
     } catch (err) {
       message.error('拆解失败')
@@ -114,8 +117,18 @@ function Tasks() {
     }
   }
 
+  const toggleCollapse = (taskId) => {
+    setCollapsed(prev => {
+      const s = new Set(prev)
+      s.has(taskId) ? s.delete(taskId) : s.add(taskId)
+      return s
+    })
+  }
+
   const renderTask = (task, isChild = false) => {
     const pri = priorityOptions.find(p => p.value === task.priority)
+    const hasChildren = task.children?.length > 0
+    const isCollapsed = collapsed.has(task.id)
     return (
       <List.Item
         key={task.id}
@@ -155,14 +168,26 @@ function Tasks() {
           }
           title={
             <Space>
+              {hasChildren && !isChild && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
+                  onClick={() => toggleCollapse(task.id)}
+                  style={{ padding: '0 4px', color: '#888' }}
+                />
+              )}
               <Text delete={task.is_completed} type={task.is_completed ? 'secondary' : undefined}>
                 {task.title}
               </Text>
               <Tag color={task.is_completed ? 'green' : pri?.color}>
                 {task.is_completed ? '已完成' : pri?.label}
               </Tag>
-              {task.children?.length > 0 && (
-                <Badge count={task.children.length} style={{ backgroundColor: '#722ed1' }} />
+              {hasChildren && (
+                <Badge
+                  count={`${task.children.filter(c => c.is_completed).length}/${task.children.length}`}
+                  style={{ backgroundColor: isCollapsed ? '#aaa' : '#722ed1', fontSize: 11 }}
+                />
               )}
             </Space>
           }
@@ -204,7 +229,7 @@ function Tasks() {
             renderItem={(task) => (
               <>
                 {renderTask(task)}
-                {task.children?.map(child => renderTask(child, true))}
+                {!collapsed.has(task.id) && task.children?.map(child => renderTask(child, true))}
               </>
             )}
           />

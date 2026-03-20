@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # 必须在所有业务模块导入前加载 .env
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
