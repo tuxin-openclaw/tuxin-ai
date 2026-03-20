@@ -29,6 +29,15 @@ env/
 # Logs
 *.log
 logs/
+.backend.log
+.frontend.log
+
+# Vim swap
+*.swp
+*.swo
+
+# Windows
+Thumbs.db
 
 # Node / Frontend
 node_modules/
