@@ -1,0 +1,10 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "pip": true,
+    "npm create": true,
+    "/^mkdir -p /Users/axin/code/tuxin/tuxin-ai/frontend/src/\\{pages,components,services,styles\\} /Users/axin/code/tuxin/tuxin-ai/frontend/public$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

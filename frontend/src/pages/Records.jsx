@@ -1,0 +1,228 @@
+/**
+ * 工作记录页面
+ */
+import React, { useState, useEffect, useCallback } from 'react'
+import {
+  Card, List, Button, Input, Space, Modal, Form, DatePicker,
+  Typography, Tag, Popconfirm, message, Spin, Empty, Tooltip, Divider,
+} from 'antd'
+import {
+  PlusOutlined, ThunderboltOutlined, DeleteOutlined,
+  EditOutlined, CalendarOutlined,
+} from '@ant-design/icons'
+import dayjs from 'dayjs'
+import { recordApi } from '../services/api'
+
+const { Text, Paragraph, Title } = Typography
+const { TextArea } = Input
+const { RangePicker } = DatePicker
+
+function Records() {
+  const [records, setRecords] = useState([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [modalVisible, setModalVisible] = useState(false)
+  const [editingRecord, setEditingRecord] = useState(null)
+  const [dateRange, setDateRange] = useState(null)
+  const [page, setPage] = useState(1)
+  const [summarizing, setSummarizing] = useState(null)
+  const [form] = Form.useForm()
+
+  const loadRecords = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = { page, page_size: 10 }
+      if (dateRange && dateRange[0]) params.start_date = dateRange[0].format('YYYY-MM-DD')
+      if (dateRange && dateRange[1]) params.end_date = dateRange[1].format('YYYY-MM-DD')
+      const res = await recordApi.list(params)
+      setRecords(res.data.records)
+      setTotal(res.data.total)
+    } catch (err) {
+      message.error('加载记录失败')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, dateRange])
+
+  useEffect(() => {
+    loadRecords()
+  }, [loadRecords])
+
+  const handleCreate = () => {
+    setEditingRecord(null)
+    form.resetFields()
+    form.setFieldsValue({ record_date: dayjs() })
+    setModalVisible(true)
+  }
+
+  const handleEdit = (record) => {
+    setEditingRecord(record)
+    form.setFieldsValue({
+      content: record.content,
+      record_date: dayjs(record.record_date),
+    })
+    setModalVisible(true)
+  }
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields()
+      const data = {
+        content: values.content,
+        record_date: values.record_date?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
+      }
+      if (editingRecord) {
+        await recordApi.update(editingRecord.id, data)
+        message.success('记录已更新')
+      } else {
+        await recordApi.create(data)
+        message.success('记录已保存，AI已自动生成总结')
+      }
+      setModalVisible(false)
+      loadRecords()
+    } catch (err) {
+      if (err.errorFields) return
+      message.error('操作失败')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await recordApi.delete(id)
+      message.success('记录已删除')
+      loadRecords()
+    } catch (err) {
+      message.error('删除失败')
+    }
+  }
+
+  const handleSummarize = async (id) => {
+    setSummarizing(id)
+    try {
+      await recordApi.summarize(id)
+      message.success('AI总结已重新生成')
+      loadRecords()
+    } catch (err) {
+      message.error('生成总结失败')
+    } finally {
+      setSummarizing(null)
+    }
+  }
+
+  return (
+    <div>
+      {/* 操作栏 */}
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+          记录工作
+        </Button>
+        <RangePicker
+          value={dateRange}
+          onChange={(dates) => { setDateRange(dates); setPage(1) }}
+          placeholder={['开始日期', '结束日期']}
+        />
+      </Space>
+
+      {/* 记录列表 */}
+      <Spin spinning={loading}>
+        {records.length > 0 ? (
+          <List
+            itemLayout="vertical"
+            dataSource={records}
+            pagination={{
+              current: page,
+              pageSize: 10,
+              total,
+              onChange: setPage,
+              showTotal: (t) => `共 ${t} 条记录`,
+            }}
+            renderItem={(record) => (
+              <List.Item
+                key={record.id}
+                actions={[
+                  <Tooltip title="重新生成AI总结" key="ai">
+                    <Button
+                      type="link"
+                      icon={<ThunderboltOutlined />}
+                      loading={summarizing === record.id}
+                      onClick={() => handleSummarize(record.id)}
+                      style={{ color: '#722ed1' }}
+                    >
+                      AI总结
+                    </Button>
+                  </Tooltip>,
+                  <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)} key="edit">
+                    编辑
+                  </Button>,
+                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.id)} key="del">
+                    <Button type="link" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Popconfirm>,
+                ]}
+              >
+                <List.Item.Meta
+                  title={
+                    <Space>
+                      <CalendarOutlined />
+                      <Text strong>{record.record_date}</Text>
+                    </Space>
+                  }
+                />
+                {/* 原始内容 */}
+                <div style={{ marginBottom: 12 }}>
+                  <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                    {record.content}
+                  </Paragraph>
+                </div>
+                {/* AI 总结 */}
+                {record.summary && (
+                  <Card
+                    size="small"
+                    style={{ background: '#f6f8fa', borderColor: '#e8e8e8' }}
+                    title={<Text type="secondary" style={{ fontSize: 12 }}>🤖 AI 总结</Text>}
+                  >
+                    <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 13 }}>
+                      {record.summary}
+                    </Paragraph>
+                  </Card>
+                )}
+              </List.Item>
+            )}
+          />
+        ) : (
+          <Empty description={'暂无工作记录，点击"记录工作"开始'} />
+        )}
+      </Spin>
+
+      {/* 新建/编辑弹窗 */}
+      <Modal
+        title={editingRecord ? '编辑工作记录' : '记录今日工作'}
+        open={modalVisible}
+        onOk={handleSubmit}
+        onCancel={() => setModalVisible(false)}
+        okText="保存"
+        cancelText="取消"
+        width={600}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="record_date" label="日期" initialValue={dayjs()}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="content"
+            label="工作内容"
+            rules={[{ required: true, message: '请输入今日工作内容' }]}
+          >
+            <TextArea
+              rows={8}
+              placeholder={`记录今天做了什么，例如：\n- 完成了用户登录功能开发\n- 修复了首页加载慢的问题\n- 参加了项目评审会议\n- 编写了接口文档`}
+              maxLength={5000}
+              showCount
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  )
+}
+
+export default Records

@@ -1,8 +1,29 @@
 from fastapi import FastAPI
-# FastAPI 用它来做请求数据验证、响应数据序列化
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-app = FastAPI(title="Tuxin AI API", version="1.0.0")
+from backend.database import init_db
+from backend.routes import tasks_router, records_router, summary_router
+
+app = FastAPI(
+    title="Tuxin AI 个人工作台",
+    description="个人AI工作台 - 任务管理、工作记录、AI总结",
+    version="1.0.0",
+)
+
+# CORS 配置，允许前端访问
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 注册路由
+app.include_router(tasks_router)
+app.include_router(records_router)
+app.include_router(summary_router)
 
 
 class HealthCheckResponse(BaseModel):
@@ -15,7 +36,7 @@ async def root():
     """根路径 - 健康检查"""
     return HealthCheckResponse(
         status="ok",
-        message="Welcome to Tuxin AI API"
+        message="Welcome to Tuxin AI 个人工作台"
     )
 
 
@@ -28,6 +49,12 @@ async def health_check():
     )
 
 
+@app.on_event("startup")
+async def startup():
+    """应用启动时初始化数据库"""
+    init_db()
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
