@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card, List, Button, Input, Space, Modal, Form, DatePicker,
-  Typography, Tag, Popconfirm, message, Spin, Empty, Tooltip, Divider,
+  Typography, Tag, Popconfirm, message, Spin, Empty, Tooltip, Divider, TreeSelect, Slider
 } from 'antd'
 import {
   PlusOutlined, ThunderboltOutlined, DeleteOutlined,
@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { recordApi } from '../services/api'
+import { taskApi } from '../services/api'
 
 const { Text, Paragraph, Title } = Typography
 const { TextArea } = Input
@@ -27,6 +28,7 @@ function Records() {
   const [page, setPage] = useState(1)
   const [summarizing, setSummarizing] = useState(null)
   const [form] = Form.useForm()
+  const [tasks, setTasks] = useState([]) // 任务列表选项
 
   const loadRecords = useCallback(async () => {
     setLoading(true)
@@ -44,9 +46,19 @@ function Records() {
     }
   }, [page, dateRange])
 
+  const loadTasks = useCallback(async () => {
+    try {
+      const res = await taskApi.list({ parent_only: false }) // 获取所有任务，包括子任务
+      setTasks(res.data.tasks)
+    } catch (err) {
+      console.error('加载任务列表失败', err)
+    }
+  }, [])
+
   useEffect(() => {
     loadRecords()
-  }, [loadRecords])
+    loadTasks()
+  }, [loadRecords, loadTasks])
 
   const handleCreate = () => {
     setEditingRecord(null)
@@ -60,6 +72,8 @@ function Records() {
     form.setFieldsValue({
       content: record.content,
       record_date: dayjs(record.record_date),
+      task_id: record.task_id,
+      task_progress: record.task_progress,
     })
     setModalVisible(true)
   }
@@ -70,6 +84,8 @@ function Records() {
       const data = {
         content: values.content,
         record_date: values.record_date?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
+        task_id: values.task_id,
+        task_progress: values.task_progress,
       }
       if (editingRecord) {
         await recordApi.update(editingRecord.id, data)
@@ -107,6 +123,27 @@ function Records() {
     } finally {
       setSummarizing(null)
     }
+  }
+
+  // 任务选项格式化 - 直接使用原数据并添加 selectable 属性
+  const formatTaskTree = (taskList) => {
+    return taskList.map(task => {
+      const hasChildren = task.children && task.children.length > 0
+      return {
+        ...task,
+        selectable: !hasChildren, // 只有没有子任务的才能选择
+        children: hasChildren ? formatTaskTree(task.children) : undefined
+      }
+    })
+  }
+
+  const taskTreeData = formatTaskTree(tasks)
+
+  // TreeSelect 字段映射配置
+  const fieldNames = {
+    value: 'id',        // 值字段
+    label: 'title',     // 显示文本字段
+    children: 'children' // 子节点字段
   }
 
   return (
@@ -164,6 +201,16 @@ function Records() {
                     <Space>
                       <CalendarOutlined />
                       <Text strong>{record.record_date}</Text>
+                      {record.task_id && record.task && (
+                        <Tag color="blue" style={{ marginLeft: 8 }}>
+                          {record.task.title}
+                        </Tag>
+                      )}
+                      {record.task_progress !== null && record.task_progress !== undefined && (
+                        <Tag color="orange" style={{ marginLeft: 8 }}>
+                          进度: {record.task_progress}%
+                        </Tag>
+                      )}
                     </Space>
                   }
                 />
@@ -173,7 +220,7 @@ function Records() {
                     {record.content}
                   </Paragraph>
                 </div>
-                {/* AI 总结 */}
+                {/* AI总结 */}
                 {record.summary && (
                   <Card
                     size="small"
@@ -218,6 +265,36 @@ function Records() {
               maxLength={5000}
               showCount
             />
+          </Form.Item>
+          <Form.Item name="task_id" label="关联任务">
+            <TreeSelect
+              placeholder="选择关联的任务（可选）"
+              allowClear
+              treeData={taskTreeData}
+              treeDefaultExpandAll
+              showSearch
+              treeNodeFilterProp="title"
+              style={{ width: '100%' }}
+              fieldNames={fieldNames}
+            />
+          </Form.Item>
+          <Form.Item
+            name="task_progress"
+            label="任务进度"
+            dependencies={['task_id']}
+          >
+            {(form) => {
+              const taskId = form.getFieldValue('task_id')
+              if (!taskId) return null
+              return (
+                <Slider
+                  min={0}
+                  max={100}
+                  marks={{ 0: '0%', 25: '25%', 50: '50%', 75: '75%', 100: '100%' }}
+                  tooltip={{ formatter: (value) => `${value}%` }}
+                />
+              )
+            }}
           </Form.Item>
         </Form>
       </Modal>

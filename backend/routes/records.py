@@ -8,6 +8,7 @@ from sqlalchemy import func
 
 from backend.database import get_db
 from backend.models.record import WorkRecord
+from backend.models.task import Task
 from backend.schemas.record import RecordCreate, RecordUpdate, RecordResponse, RecordListResponse
 from backend.services import ai_service
 
@@ -19,6 +20,8 @@ async def create_record(record_in: RecordCreate, db: Session = Depends(get_db)):
     record = WorkRecord(
         content=record_in.content,
         record_date=record_in.record_date or date.today(),
+        task_id=record_in.task_id,
+        task_progress=record_in.task_progress,
     )
     db.add(record)
     db.commit()
@@ -29,6 +32,15 @@ async def create_record(record_in: RecordCreate, db: Session = Depends(get_db)):
     record.summary = summary
     db.commit()
     db.refresh(record)
+
+    # 如果设置了任务进度，更新对应任务的进度
+    if record_in.task_progress is not None and record_in.task_id is not None:
+        task = db.query(Task).filter(Task.id == record_in.task_id).first()
+        if task:
+            task.progress = record_in.task_progress
+            if task.progress == 100:
+                task.is_completed = True
+            db.commit()
 
     return record
 
@@ -54,6 +66,12 @@ async def get_records(
         .limit(page_size)
         .all()
     )
+
+    # 为每个记录加载关联的任务信息
+    for record in records:
+        if record.task_id:
+            record.task = db.query(Task).filter(Task.id == record.task_id).first()
+
     return RecordListResponse(total=total, records=records)
 
 
@@ -62,6 +80,8 @@ async def get_record(record_id: int, db: Session = Depends(get_db)):
     record = db.query(WorkRecord).filter(WorkRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
+    if record.task_id:
+        record.task = db.query(Task).filter(Task.id == record.task_id).first()
     return record
 
 
@@ -81,6 +101,23 @@ async def update_record(record_id: int, record_in: RecordUpdate, db: Session = D
 
     db.commit()
     db.refresh(record)
+
+    # 如果设置了任务进度，更新对应任务的进度
+    if "task_progress" in update_data and "task_id" in update_data:
+        task = db.query(Task).filter(Task.id == record.task_id).first()
+        if task:
+            task.progress = update_data["task_progress"]
+            if task.progress == 100:
+                task.is_completed = True
+            db.commit()
+    elif "task_progress" in update_data and record.task_id is not None:
+        task = db.query(Task).filter(Task.id == record.task_id).first()
+        if task:
+            task.progress = update_data["task_progress"]
+            if task.progress == 100:
+                task.is_completed = True
+            db.commit()
+
     return record
 
 

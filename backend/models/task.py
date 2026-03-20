@@ -15,6 +15,7 @@ class Task(Base):
     is_completed = Column(Boolean, default=False, comment="是否已完成")
     priority = Column(Integer, default=0, comment="优先级: 0-普通 1-重要 2-紧急")
     parent_id = Column(Integer, ForeignKey("tasks.id"), nullable=True, comment="父任务ID（用于AI拆解子任务）")
+    progress = Column(Integer, default=0, comment="任务进度: 0-100")
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
     completed_at = Column(DateTime, nullable=True, comment="完成时间")
@@ -25,4 +26,11 @@ class Task(Base):
         backref=backref("parent", remote_side=[id]),
         lazy="selectin",
         cascade="all, delete-orphan",
+    )
+
+    # 工作记录关系
+    records = relationship(
+        "WorkRecord",
+        backref="task",
+        lazy="selectin"
     )
