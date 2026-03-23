@@ -2,6 +2,7 @@
  * 任务管理页面
  */
 import React, { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Card, List, Button, Input, Select, Tag, Space, Modal, Form,
   Checkbox, Typography, Tooltip, Popconfirm, message, Spin, Empty, Badge, Progress,
@@ -13,6 +14,10 @@ import {
   SubnodeOutlined,
 } from '@ant-design/icons'
 import { taskApi } from '../services/api'
+import {
+  STATUS_COMPLETED,
+  STATUS_IN_PROGRESS,
+} from '../constants'
 
 const { Text, Paragraph } = Typography
 const { TextArea } = Input
@@ -24,11 +29,12 @@ const priorityOptions = [
 ]
 
 function Tasks() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
-  const [filter, setFilter] = useState(null) // null=全部, true=已完成, false=进行中
+  const [status, setStatus] = useState(() => searchParams.get('status'))
   const [splitting, setSplitting] = useState(null) // 正在拆解的任务ID
   const [expandedTaskId, setExpandedTaskId] = useState(null) // 当前展开的父任务ID（手风琴模式）
   const [parentTaskId, setParentTaskId] = useState(null) // 手动添加子任务时的父任务ID
@@ -38,17 +44,29 @@ function Tasks() {
     setLoading(true)
     try {
       const params = { parent_only: true }
-      if (filter !== null) params.is_completed = filter
+      if (status === STATUS_COMPLETED) {
+        params.status = 'completed'
+      } else if (status === STATUS_IN_PROGRESS) {
+        params.status = 'ongoing'
+      }
       const res = await taskApi.list(params)
-      setTasks(res.data.tasks)
+      const tasksData = res.data.tasks
+      setTasks(tasksData)
+
+      // 现在已完成任务只显示完全完成的，不需要自动展开
     } catch (err) {
       message.error('加载任务失败')
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [status])
 
   useEffect(() => {
+    const status = searchParams.get('status')
+    if (status) {
+      // 清除 URL 查询参数
+      setSearchParams({}, { replace: true })
+    }
     loadTasks()
   }, [loadTasks])
 
@@ -211,9 +229,11 @@ function Tasks() {
               <Text delete={task.is_completed} type={task.is_completed ? 'secondary' : undefined}>
                 {task.title}
               </Text>
-              <Tag color={task.is_completed ? 'green' : pri?.color}>
-                {task.is_completed ? '已完成' : pri?.label}
-              </Tag>
+              {task.is_completed ? (
+                <Tag color="green">已完成</Tag>
+              ) : (
+                <Tag color={pri?.color}>{pri?.label}</Tag>
+              )}
               {hasChildren && (
                 <Badge
                   count={`${task.children.filter(c => c.is_completed).length}/${task.children.length}`}
@@ -261,13 +281,13 @@ function Tasks() {
           新建任务
         </Button>
         <Select
-          value={filter}
-          onChange={setFilter}
+          value={status}
+          onChange={setStatus}
           style={{ width: 120 }}
           options={[
             { value: null, label: '全部' },
-            { value: false, label: '进行中' },
-            { value: true, label: '已完成' },
+            { value: STATUS_IN_PROGRESS, label: '进行中' },
+            { value: STATUS_COMPLETED, label: '已完成' },
           ]}
         />
       </Space>
@@ -286,7 +306,7 @@ function Tasks() {
             )}
           />
         ) : (
-          <Empty description={filter === true ? '暂无已完成任务' : filter === false ? '暂无进行中任务' : '暂无任务，点击"新建任务"开始'} />
+          <Empty description={status === STATUS_COMPLETED ? '暂无已完成任务' : status === STATUS_IN_PROGRESS ? '暂无进行中任务' : '暂无任务，点击"新建任务"开始'} />
         )}
       </Spin>
 

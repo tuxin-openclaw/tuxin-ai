@@ -12,13 +12,17 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String(200), nullable=False, comment="任务标题")
     description = Column(Text, nullable=True, comment="任务描述")
-    is_completed = Column(Boolean, default=False, comment="是否已完成")
     priority = Column(Integer, default=0, comment="优先级: 0-普通 1-重要 2-紧急")
     parent_id = Column(Integer, ForeignKey("tasks.id"), nullable=True, comment="父任务ID（用于AI拆解子任务）")
     progress = Column(Integer, default=0, comment="任务进度: 0-100")
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
     completed_at = Column(DateTime, nullable=True, comment="完成时间")
+
+    @property
+    def is_completed(self):
+        """使用progress == 100来判断任务是否已完成"""
+        return self.progress == 100
 
     # 子任务关系
     children = relationship(

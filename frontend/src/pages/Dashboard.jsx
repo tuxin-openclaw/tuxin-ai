@@ -9,11 +9,14 @@ import {
   CalendarOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { statsApi, taskApi, recordApi } from '../services/api'
+import { STATUS_COMPLETED, STATUS_IN_PROGRESS } from '../constants'
 
 const { Title, Text, Paragraph } = Typography
 
 function Dashboard() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [recentTasks, setRecentTasks] = useState([])
   const [recentRecords, setRecentRecords] = useState([])
@@ -50,7 +53,7 @@ function Dashboard() {
       {/* 统计卡片 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card hoverable>
+          <Card hoverable onClick={() => navigate('/records')}>
             <Statistic
               title="总记录数"
               value={stats?.total_records || 0}
@@ -60,7 +63,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card hoverable>
+          <Card hoverable onClick={() => navigate('/tasks')}>
             <Statistic
               title="总任务数"
               value={stats?.total_tasks || 0}
@@ -70,7 +73,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card hoverable>
+          <Card hoverable onClick={() => navigate(`/tasks?status=${STATUS_COMPLETED}`)}>
             <Statistic
               title="已完成任务"
               value={stats?.completed_tasks || 0}
@@ -80,7 +83,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card hoverable>
+          <Card>
             <Statistic
               title="活跃天数"
               value={stats?.active_days || 0}
@@ -99,23 +102,26 @@ function Dashboard() {
               <List
                 size="small"
                 dataSource={recentTasks}
-                renderItem={(task) => (
-                  <List.Item>
-                    <Text
-                      delete={task.is_completed}
-                      type={task.is_completed ? 'secondary' : undefined}
-                    >
-                      {task.title}
-                    </Text>
-                    {task.is_completed ? (
-                      <Tag color="green">已完成</Tag>
-                    ) : (
-                      <Tag color={task.priority === 2 ? 'red' : task.priority === 1 ? 'orange' : 'blue'}>
-                        {['普通', '重要', '紧急'][task.priority]}
-                      </Tag>
-                    )}
-                  </List.Item>
-                )}
+                renderItem={(task) => {
+                  const isCompleted = task.progress === 100
+                  return (
+                    <List.Item>
+                      <Text
+                        delete={isCompleted}
+                        type={isCompleted ? 'secondary' : undefined}
+                      >
+                        {task.title}
+                      </Text>
+                      {isCompleted ? (
+                        <Tag color="green">已完成</Tag>
+                      ) : (
+                        <Tag color={task.priority === 2 ? 'red' : task.priority === 1 ? 'orange' : 'blue'}>
+                          {['普通', '重要', '紧急'][task.priority]}
+                        </Tag>
+                      )}
+                    </List.Item>
+                  )
+                }}
               />
             ) : (
               <Empty description="暂无任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />

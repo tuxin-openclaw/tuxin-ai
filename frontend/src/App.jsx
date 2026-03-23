@@ -6,6 +6,7 @@ import {
   FileTextOutlined,
   BarChartOutlined,
 } from '@ant-design/icons'
+import { Link, useLocation, useNavigate, Routes, Route } from 'react-router-dom'
 import zhCN from 'antd/locale/zh_CN'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
@@ -16,22 +17,18 @@ const { Header, Sider, Content } = Layout
 const { Title } = Typography
 
 const menuItems = [
-  { key: 'dashboard', icon: <DashboardOutlined />, label: '工作台' },
-  { key: 'tasks', icon: <CheckSquareOutlined />, label: '任务管理' },
-  { key: 'records', icon: <FileTextOutlined />, label: '工作记录' },
-  { key: 'reports', icon: <BarChartOutlined />, label: '周报月报' },
+  { key: '/', icon: <DashboardOutlined />, label: '工作台' },
+  { key: '/tasks', icon: <CheckSquareOutlined />, label: '任务管理' },
+  { key: '/records', icon: <FileTextOutlined />, label: '工作记录' },
+  { key: '/reports', icon: <BarChartOutlined />, label: '周报月报' },
 ]
 
-const pageMap = {
-  dashboard: <Dashboard />,
-  tasks: <Tasks />,
-  records: <Records />,
-  reports: <Reports />,
-}
-
 function App() {
-  const [currentPage, setCurrentPage] = useState('dashboard')
+  const location = useLocation()
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
+
+  const currentKey = menuItems.find(item => item.key === location.pathname)?.key || '/'
 
   return (
     <ConfigProvider
@@ -66,9 +63,12 @@ function App() {
           </div>
           <Menu
             mode="inline"
-            selectedKeys={[currentPage]}
-            items={menuItems}
-            onClick={({ key }) => setCurrentPage(key)}
+            selectedKeys={[currentKey]}
+            items={menuItems.map(item => ({
+              ...item,
+              label: <Link to={item.key}>{item.label}</Link>,
+            }))}
+            onClick={({ key }) => navigate(key)}
             style={{ borderRight: 0 }}
           />
         </Sider>
@@ -81,7 +81,7 @@ function App() {
             alignItems: 'center',
           }}>
             <Title level={4} style={{ margin: 0 }}>
-              {menuItems.find(m => m.key === currentPage)?.label}
+              {menuItems.find(m => m.key === currentKey)?.label}
             </Title>
           </Header>
           <Content style={{
@@ -92,7 +92,12 @@ function App() {
             minHeight: 360,
             overflow: 'auto',
           }}>
-            {pageMap[currentPage]}
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/records" element={<Records />} />
+              <Route path="/reports" element={<Reports />} />
+            </Routes>
           </Content>
         </Layout>
       </Layout>

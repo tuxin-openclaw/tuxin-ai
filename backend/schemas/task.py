@@ -15,7 +15,6 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
-    is_completed: Optional[bool] = None
     priority: Optional[int] = Field(None, ge=0, le=2)
     progress: Optional[int] = Field(None, ge=0, le=100, description="任务进度 0-100")
 
