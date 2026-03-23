@@ -17,6 +17,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     is_completed: Optional[bool] = None
     priority: Optional[int] = Field(None, ge=0, le=2)
+    progress: Optional[int] = Field(None, ge=0, le=100, description="任务进度 0-100")
 
 
 class TaskResponse(BaseModel):
@@ -26,6 +27,7 @@ class TaskResponse(BaseModel):
     is_completed: bool
     priority: int
     parent_id: Optional[int]
+    progress: int
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime]

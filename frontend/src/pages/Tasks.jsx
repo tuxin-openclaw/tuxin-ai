@@ -4,7 +4,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card, List, Button, Input, Select, Tag, Space, Modal, Form,
-  Checkbox, Typography, Tooltip, Popconfirm, message, Spin, Empty, Badge
+  Checkbox, Typography, Tooltip, Popconfirm, message, Spin, Empty, Badge, Progress,
+  Slider
 } from 'antd'
 import {
   PlusOutlined, ThunderboltOutlined, DeleteOutlined,
@@ -72,6 +73,7 @@ function Tasks() {
       title: task.title,
       description: task.description,
       priority: task.priority,
+      progress: task.progress,
     })
     setModalVisible(true)
   }
@@ -220,11 +222,32 @@ function Tasks() {
               )}
             </Space>
           }
-          description={task.description && (
-            <Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: 0 }}>
-              {task.description}
-            </Paragraph>
-          )}
+          description={
+            <div>
+              {task.description && (
+                <Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: 0 }}>
+                  {task.description}
+                </Paragraph>
+              )}
+              {/* 显示任务进度 */}
+              {task.progress > 0 && !task.is_completed && (
+                <div style={{ marginTop: 8 }}>
+                  <Space>
+                    <Text type="secondary" style={{ fontSize: 12 }}>进度:</Text>
+                    <Progress
+                      percent={task.progress}
+                      size="small"
+                      strokeColor={{
+                        '0%': '#108ee9',
+                        '100%': '#87d068',
+                      }}
+                      style={{ width: 120 }}
+                    />
+                  </Space>
+                </div>
+              )}
+            </div>
+          }
         />
       </List.Item>
     )
@@ -289,6 +312,14 @@ function Tasks() {
           </Form.Item>
           <Form.Item name="priority" label="优先级" initialValue={0}>
             <Select options={priorityOptions} />
+          </Form.Item>
+          <Form.Item name="progress" label="任务进度">
+            <Slider
+              min={0}
+              max={100}
+              marks={{ 0: '0%', 25: '25%', 50: '50%', 75: '75%', 100: '100%' }}
+              tooltip={{ formatter: (value) => `${value}%` }}
+            />
           </Form.Item>
         </Form>
       </Modal>
