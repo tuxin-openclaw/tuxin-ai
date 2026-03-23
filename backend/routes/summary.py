@@ -5,12 +5,20 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from backend.database import get_db
-from backend.models.task import Task
-from backend.models.record import WorkRecord
-from backend.schemas.summary import ReportResponse
-from backend.schemas.stats import StatsResponse
-from backend.services import ai_service
+try:
+    from ..database import get_db
+    from ..models.task import Task
+    from ..models.record import WorkRecord
+    from ..schemas.summary import ReportResponse
+    from ..schemas.stats import StatsResponse
+    from ..services import ai_service
+except ImportError:
+    from database import get_db
+    from models.task import Task
+    from models.record import WorkRecord
+    from schemas.summary import ReportResponse
+    from schemas.stats import StatsResponse
+    from services import ai_service
 
 router = APIRouter(prefix="/api", tags=["总结与统计"])
 

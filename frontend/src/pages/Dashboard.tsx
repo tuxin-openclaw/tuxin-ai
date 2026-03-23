@@ -1,56 +1,59 @@
 /**
  * 工作台仪表盘 - 首页
  */
-import React, { useState, useEffect } from 'react'
-import { Row, Col, Card, Statistic, Typography, List, Tag, Empty, Spin } from 'antd'
+import { useState, useEffect } from 'react';
+import { Row, Col, Card, Statistic, Typography, List, Tag, Empty, Spin } from 'antd';
 import {
   FileTextOutlined,
   CheckCircleOutlined,
   CalendarOutlined,
   UnorderedListOutlined,
-} from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
-import { statsApi, taskApi, recordApi } from '../services/api'
-import { STATUS_COMPLETED, STATUS_IN_PROGRESS } from '../constants'
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { statsApi, taskApi, recordApi } from '../services/api';
+import { STATUS_COMPLETED, type Stats, type Task, type WorkRecord as Record } from '../constants';
 
-const { Title, Text, Paragraph } = Typography
+const { Text, Paragraph } = Typography;
 
 function Dashboard() {
-  const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [recentTasks, setRecentTasks] = useState([])
-  const [recentRecords, setRecentRecords] = useState([])
-  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
+  const [recentRecords, setRecentRecords] = useState<Record[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
   const loadData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const [statsRes, tasksRes, recordsRes] = await Promise.all([
         statsApi.get(),
         taskApi.list({ parent_only: true }),
         recordApi.list({ page_size: 5 }),
-      ])
-      setStats(statsRes.data)
-      setRecentTasks(tasksRes.data.tasks.slice(0, 5))
-      setRecentRecords(recordsRes.data.records.slice(0, 5))
+      ]);
+      setStats(statsRes.data);
+      setRecentTasks(tasksRes.data.tasks.slice(0, 5));
+      setRecentRecords(recordsRes.data.records.slice(0, 5));
     } catch (err) {
-      console.error('加载数据失败:', err)
+      console.error('加载数据失败:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+    return (
+      <div style={{ textAlign: 'center', padding: 80 }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
     <div>
-      {/* 统计卡片 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
           <Card hoverable onClick={() => navigate('/records')}>
@@ -94,7 +97,6 @@ function Dashboard() {
         </Col>
       </Row>
 
-      {/* 最近任务 & 最近记录 */}
       <Row gutter={16} style={{ marginTop: 24 }}>
         <Col xs={24} md={12}>
           <Card title="📋 最近任务" size="small">
@@ -103,24 +105,25 @@ function Dashboard() {
                 size="small"
                 dataSource={recentTasks}
                 renderItem={(task) => {
-                  const isCompleted = task.progress === 100
+                  const isCompleted = task.progress === 100;
                   return (
-                    <List.Item>
-                      <Text
-                        delete={isCompleted}
-                        type={isCompleted ? 'secondary' : undefined}
-                      >
+                    <List.Item key={task.id}>
+                      <Text delete={isCompleted} type={isCompleted ? 'secondary' : undefined}>
                         {task.title}
                       </Text>
                       {isCompleted ? (
                         <Tag color="green">已完成</Tag>
                       ) : (
-                        <Tag color={task.priority === 2 ? 'red' : task.priority === 1 ? 'orange' : 'blue'}>
+                        <Tag
+                          color={
+                            task.priority === 2 ? 'red' : task.priority === 1 ? 'orange' : 'blue'
+                          }
+                        >
                           {['普通', '重要', '紧急'][task.priority]}
                         </Tag>
                       )}
                     </List.Item>
-                  )
+                  );
                 }}
               />
             ) : (
@@ -135,7 +138,7 @@ function Dashboard() {
                 size="small"
                 dataSource={recentRecords}
                 renderItem={(record) => (
-                  <List.Item>
+                  <List.Item key={record.id}>
                     <List.Item.Meta
                       title={<Text type="secondary">{record.record_date}</Text>}
                       description={
@@ -154,7 +157,7 @@ function Dashboard() {
         </Col>
       </Row>
     </div>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;

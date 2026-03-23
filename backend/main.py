@@ -5,8 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from backend.database import init_db
-from backend.routes import tasks_router, records_router, summary_router
+from database import init_db
+from routes import tasks_router, records_router, summary_router
 
 app = FastAPI(
     title="Tuxin AI 个人工作台",

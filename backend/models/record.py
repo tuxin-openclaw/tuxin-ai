@@ -2,7 +2,11 @@
 
 from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey
-from backend.database import Base
+
+try:
+    from ..database import Base
+except ImportError:
+    from database import Base
 
 
 class WorkRecord(Base):

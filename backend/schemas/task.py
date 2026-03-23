@@ -10,6 +10,7 @@ class TaskCreate(BaseModel):
     description: Optional[str] = Field(None, description="任务描述")
     priority: int = Field(0, ge=0, le=2, description="优先级: 0-普通 1-重要 2-紧急")
     parent_id: Optional[int] = Field(None, description="父任务ID")
+    progress: Optional[int] = Field(None, ge=0, le=100, description="任务进度 0-100")
 
 
 class TaskUpdate(BaseModel):

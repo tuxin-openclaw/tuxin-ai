@@ -6,11 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from backend.database import get_db
-from backend.models.record import WorkRecord
-from backend.models.task import Task
-from backend.schemas.record import RecordCreate, RecordUpdate, RecordResponse, RecordListResponse
-from backend.services import ai_service
+try:
+    from ..database import get_db
+    from ..models.record import WorkRecord
+    from ..models.task import Task
+    from ..schemas.record import RecordCreate, RecordUpdate, RecordResponse, RecordListResponse
+    from ..services import ai_service
+except ImportError:
+    from database import get_db
+    from models.record import WorkRecord
+    from models.task import Task
+    from schemas.record import RecordCreate, RecordUpdate, RecordResponse, RecordListResponse
+    from services import ai_service
 
 router = APIRouter(prefix="/api/records", tags=["工作记录"])
 

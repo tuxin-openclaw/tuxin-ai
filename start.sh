@@ -9,8 +9,8 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_LOG="$PROJECT_DIR/.backend.log"
-FRONTEND_LOG="$PROJECT_DIR/.frontend.log"
+BACKEND_LOG="$PROJECT_DIR/backend/.backend.log"
+FRONTEND_LOG="$PROJECT_DIR/frontend/.frontend.log"
 BACKEND_PID=""
 FRONTEND_PID=""
 
@@ -50,11 +50,11 @@ check_env() {
 # ── 安装依赖 ─────────────────────────────────────────────────
 install_deps() {
   log "安装 Python 依赖..."
-  pip3 install -r "$PROJECT_DIR/requirements.txt" -q
+  pip3 install -r "$PROJECT_DIR/backend/requirements.txt" -q
   ok "Python 依赖已安装"
 
   log "安装前端依赖..."
-  cd "$PROJECT_DIR/frontend" && npm install --silent
+  cd "$PROJECT_DIR/frontend" && pnpm install --silent
   ok "前端依赖已安装"
   cd "$PROJECT_DIR"
 }
@@ -62,7 +62,7 @@ install_deps() {
 # ── 启动后端 ─────────────────────────────────────────────────
 start_backend() {
   log "启动后端 (FastAPI)..."
-  cd "$PROJECT_DIR"
+  cd "$PROJECT_DIR/backend"
   python3 -m uvicorn main:app --reload --port 8000 \
     --log-level info > "$BACKEND_LOG" 2>&1 &
   BACKEND_PID=$!

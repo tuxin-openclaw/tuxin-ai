@@ -1,7 +1,7 @@
 /**
  * 工作记录页面
  */
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   List,
@@ -18,50 +18,64 @@ import {
   Spin,
   Empty,
   Tooltip,
-  Divider,
   TreeSelect,
   Slider,
-} from "antd";
+} from 'antd';
 import {
   PlusOutlined,
   ThunderboltOutlined,
   DeleteOutlined,
   EditOutlined,
   CalendarOutlined,
-} from "@ant-design/icons";
-import dayjs from "dayjs";
-import { recordApi } from "../services/api";
-import { taskApi } from "../services/api";
+} from '@ant-design/icons';
+import dayjs, { Dayjs } from 'dayjs';
+import { recordApi, taskApi } from '../services/api';
+import type { WorkRecord as Record, Task } from '../constants';
 
-const { Text, Paragraph, Title } = Typography;
+const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
 
+interface FormValues {
+  content: string;
+  record_date: Dayjs;
+  task_id?: number;
+  task_progress?: number;
+}
+
+interface TreeTask extends Task {
+  selectable?: boolean;
+  children?: TreeTask[];
+}
+
 function Records() {
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState<Record[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [dateRange, setDateRange] = useState(null);
+  const [editingRecord, setEditingRecord] = useState<Record | null>(null);
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [page, setPage] = useState(1);
-  const [summarizing, setSummarizing] = useState(null);
-  const [form] = Form.useForm();
-  const [tasks, setTasks] = useState([]); // 任务列表选项
+  const [summarizing, setSummarizing] = useState<number | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [form] = Form.useForm<FormValues>();
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, page_size: 10 };
-      if (dateRange && dateRange[0])
-        params.start_date = dateRange[0].format("YYYY-MM-DD");
-      if (dateRange && dateRange[1])
-        params.end_date = dateRange[1].format("YYYY-MM-DD");
+      const params: { [key: string]: unknown } = { page, page_size: 10 };
+      if (dateRange && dateRange[0]) {
+        params.start_date = dateRange[0].format('YYYY-MM-DD');
+      }
+      if (dateRange && dateRange[1]) {
+        params.end_date = dateRange[1].format('YYYY-MM-DD');
+      }
       const res = await recordApi.list(params);
       setRecords(res.data.records);
       setTotal(res.data.total);
-    } catch (err) {
-      message.error("加载记录失败");
+    } catch {
+      message.error('加载记录失败');
     } finally {
       setLoading(false);
     }
@@ -69,10 +83,10 @@ function Records() {
 
   const loadTasks = useCallback(async () => {
     try {
-      const res = await taskApi.list({ parent_only: false }); // 获取所有任务，包括子任务
+      const res = await taskApi.list({ parent_only: false });
       setTasks(res.data.tasks);
     } catch (err) {
-      console.error("加载任务列表失败", err);
+      console.error('加载任务列表失败', err);
     }
   }, []);
 
@@ -88,7 +102,7 @@ function Records() {
     setModalVisible(true);
   };
 
-  const handleEdit = (record) => {
+  const handleEdit = (record: Record) => {
     setEditingRecord(record);
     form.setFieldsValue({
       content: record.content,
@@ -100,63 +114,63 @@ function Records() {
   };
 
   const handleSubmit = async () => {
+    setSubmitLoading(true);
     try {
       const values = await form.validateFields();
       const data = {
         content: values.content,
-        record_date:
-          values.record_date?.format("YYYY-MM-DD") ||
-          dayjs().format("YYYY-MM-DD"),
+        record_date: values.record_date?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
         task_id: values.task_id,
         task_progress: values.task_progress,
       };
       if (editingRecord) {
         await recordApi.update(editingRecord.id, data);
-        message.success("记录已更新");
+        message.success('记录已更新');
       } else {
         await recordApi.create(data);
-        message.success("记录已保存，AI已自动生成总结");
+        message.success('记录已保存，AI已自动生成总结');
       }
       setModalVisible(false);
       loadRecords();
     } catch (err) {
-      if (err.errorFields) return;
-      message.error("操作失败");
+      if ((err as { errorFields?: unknown[] }).errorFields) return;
+      message.error('操作失败');
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     try {
       await recordApi.delete(id);
-      message.success("记录已删除");
+      message.success('记录已删除');
       loadRecords();
-    } catch (err) {
-      message.error("删除失败");
+    } catch {
+      message.error('删除失败');
     }
   };
 
-  const handleSummarize = async (id) => {
+  const handleSummarize = async (id: number) => {
     setSummarizing(id);
     try {
       await recordApi.summarize(id);
-      message.success("AI总结已重新生成");
+      message.success('AI总结已重新生成');
       loadRecords();
-    } catch (err) {
-      message.error("生成总结失败");
+    } catch {
+      message.error('生成总结失败');
     } finally {
       setSummarizing(null);
     }
   };
 
-  // 任务选项格式化 - 直接使用原数据并添加 selectable 属性
-  const formatTaskTree = (taskList, parentId = null) => {
+  const formatTaskTree = (taskList: Task[], parentId: number | null = null): TreeTask[] => {
     return taskList
       .filter((task) => task.parent_id === parentId)
       .map((task) => {
         const children = formatTaskTree(taskList, task.id);
         return {
           ...task,
-          selectable: children.length === 0, // 只有没有子任务的才能选择
+          selectable: children.length === 0,
           children: children.length > 0 ? children : undefined,
         };
       });
@@ -164,16 +178,14 @@ function Records() {
 
   const taskTreeData = formatTaskTree(tasks);
 
-  // TreeSelect 字段映射配置
   const fieldNames = {
-    value: "id", // 值字段
-    label: "title", // 显示文本字段
-    children: "children", // 子节点字段
+    value: 'id',
+    label: 'title',
+    children: 'children',
   };
 
   return (
     <div>
-      {/* 操作栏 */}
       <Space style={{ marginBottom: 16 }} wrap>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
           记录工作
@@ -181,14 +193,13 @@ function Records() {
         <RangePicker
           value={dateRange}
           onChange={(dates) => {
-            setDateRange(dates);
+            setDateRange(dates as [Dayjs, Dayjs] | null);
             setPage(1);
           }}
-          placeholder={["开始日期", "结束日期"]}
+          placeholder={['开始日期', '结束日期']}
         />
       </Space>
 
-      {/* 记录列表 */}
       <Spin spinning={loading}>
         {records.length > 0 ? (
           <List
@@ -211,7 +222,7 @@ function Records() {
                       icon={<ThunderboltOutlined />}
                       loading={summarizing === record.id}
                       onClick={() => handleSummarize(record.id)}
-                      style={{ color: "#722ed1" }}
+                      style={{ color: '#722ed1' }}
                     >
                       AI总结
                     </Button>
@@ -245,26 +256,23 @@ function Records() {
                           {record.task.title}
                         </Tag>
                       )}
-                      {record.task_progress !== null &&
-                        record.task_progress !== undefined && (
-                          <Tag color="orange" style={{ marginLeft: 8 }}>
-                            进度: {record.task_progress}%
-                          </Tag>
-                        )}
+                      {record.task_progress !== null && record.task_progress !== undefined && (
+                        <Tag color="orange" style={{ marginLeft: 8 }}>
+                          进度: {record.task_progress}%
+                        </Tag>
+                      )}
                     </Space>
                   }
                 />
-                {/* 原始内容 */}
                 <div style={{ marginBottom: 12 }}>
-                  <Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                  <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
                     {record.content}
                   </Paragraph>
                 </div>
-                {/* AI总结 */}
                 {record.summary && (
                   <Card
                     size="small"
-                    style={{ background: "#f6f8fa", borderColor: "#e8e8e8" }}
+                    style={{ background: '#f6f8fa', borderColor: '#e8e8e8' }}
                     title={
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         🤖 AI 总结
@@ -273,7 +281,7 @@ function Records() {
                   >
                     <Paragraph
                       style={{
-                        whiteSpace: "pre-wrap",
+                        whiteSpace: 'pre-wrap',
                         margin: 0,
                         fontSize: 13,
                       }}
@@ -290,24 +298,24 @@ function Records() {
         )}
       </Spin>
 
-      {/* 新建/编辑弹窗 */}
       <Modal
-        title={editingRecord ? "编辑工作记录" : "记录今日工作"}
+        title={editingRecord ? '编辑工作记录' : '记录今日工作'}
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
         okText="保存"
         cancelText="取消"
         width={600}
+        confirmLoading={submitLoading}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="record_date" label="日期" initialValue={dayjs()}>
-            <DatePicker style={{ width: "100%" }} />
+            <DatePicker style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name="content"
             label="工作内容"
-            rules={[{ required: true, message: "请输入今日工作内容" }]}
+            rules={[{ required: true, message: '请输入今日工作内容' }]}
           >
             <TextArea
               rows={8}
@@ -324,11 +332,10 @@ function Records() {
               treeDefaultExpandAll
               showSearch
               treeNodeFilterProp="title"
-              style={{ width: "100%" }}
+              style={{ width: '100%' }}
               fieldNames={fieldNames}
               onChange={(taskId) => {
                 if (taskId) {
-                  // 找到选中的任务并回显进度
                   const selectedTask = tasks.find((t) => t.id === taskId);
                   if (selectedTask && selectedTask.progress !== undefined) {
                     form.setFieldsValue({
@@ -343,7 +350,7 @@ function Records() {
             <Slider
               min={0}
               max={100}
-              marks={{ 0: "0%", 25: "25%", 50: "50%", 75: "75%", 100: "100%" }}
+              marks={{ 0: '0%', 25: '25%', 50: '50%', 75: '75%', 100: '100%' }}
               tooltip={{ formatter: (value) => `${value}%` }}
             />
           </Form.Item>

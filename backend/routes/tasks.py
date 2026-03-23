@@ -6,10 +6,16 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
-from backend.models.task import Task
-from backend.schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
-from backend.services import ai_service
+try:
+    from ..database import get_db
+    from ..models.task import Task
+    from ..schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
+    from ..services import ai_service
+except ImportError:
+    from database import get_db
+    from models.task import Task
+    from schemas.task import TaskCreate, TaskUpdate, TaskResponse, TaskListResponse
+    from services import ai_service
 
 router = APIRouter(prefix="/api/tasks", tags=["任务管理"])
 
@@ -78,6 +84,7 @@ async def create_task(task_in: TaskCreate, db: Session = Depends(get_db)):
         description=task_in.description,
         priority=task_in.priority,
         parent_id=task_in.parent_id,
+        progress=task_in.progress or 0,
     )
     db.add(task)
     db.commit()
